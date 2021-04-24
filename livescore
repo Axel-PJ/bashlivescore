@@ -1,5 +1,82 @@
 #!/bin/bash
 
+#----
 #Version: 0.1a
 #Author: Axel Philippe-Jolivel
 #Modified: 21/04/2021
+#----
+
+#Global program help
+sub_help(){
+printf "%s\n" "Help message" \
+"bonjour" \
+"test"
+}
+
+#Planning subCommand
+sub_planning(){
+local argument
+argument=$1
+case "${argument}" in
+    "help" | "")
+        printf '%s\n' 'sub command help'
+        ;;
+    "all")
+        printf '%s\n' "${argument}"
+        ;;
+	"nba")
+		nba_planning_api_call
+		nba_planning_printer
+		;;
+esac
+}
+
+# API Call -> json decode with jq -> bash array $nbaMatchArray
+# Array template : [Match#1] [Date#1] [Match#2] [Date#2] [Match#n] [Date#n]
+# Works with current date only in v0.1, support for future date input in roadmap, support for multiple date input in roadmap
+nba_planning_api_call(){
+	local date=$(date +"%Y%m%d")
+	local url="http://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=${date}"
+	local wgetResult=$(wget -qO- "${url}")
+	local jqOut=$(echo "${wgetResult}" | jq -c '.events[] | .name,.date')
+	local IFS=$'\n'
+	nbaMatchArray=( $( printf "%s\n" "${jqOut//[\"\"]}" ) )
+}
+
+# Pretty print of $nbaMatchArray from API Call
+nba_planning_printer(){
+	local nbaMatch=${nbaMatchArray[0]}
+	local IFS=$';'
+	local specificMatchArray=( ${nbaMatch//at/\;} )
+	local IFS=$' \t\n'
+	color1=$(get_team_color "${specificMatchArray[0]}")
+	color2=$(get_team_color "${specificMatchArray[1]}")
+	printf "%s @ %s\n" "${!color1}${specificMatchArray[0]}${end}" "${!color2}${specificMatchArray[1]}${end}"
+}
+
+
+get_team_color(){
+local teamArray=( $1 )
+local teamColor=${teamArray[-1],,}
+echo "$teamColor"
+}
+
+# Main with subcommand checker
+# Help / Empty
+# Valid subCommand (Check TBA)
+# Bad subCommand (TBA)
+main(){
+source ./colors.data
+subCommand=$1
+case "${subCommand}" in
+	"help" | "")
+		sub_help
+		;;
+	*)
+		shift
+		sub_"${subCommand}" "$@"
+		;;
+esac
+}
+
+main "$@"
