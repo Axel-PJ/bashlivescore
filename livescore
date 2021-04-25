@@ -8,9 +8,18 @@
 
 #Global program help
 sub_help(){
-printf "%s\n" "Help message" \
-"bonjour" \
-"test"
+printf "%s\n" "Usage: livescore [COMMAND] [ARGUMENT]" \
+" " \
+"This script checks for today's US sports games using the ESPN API." \
+" " \
+"Commands:" \
+"	planning		Shows games played today." \
+"	live (not yet implemented)" \
+" " \
+"Arguments:" \
+"	planning: [nba,nhl,mlb,all]" \
+"	live: (not yet implemented)" \
+
 }
 
 #Planning subCommand
@@ -22,43 +31,87 @@ case "${argument}" in
         printf '%s\n' 'sub command help'
         ;;
     "all")
-        printf '%s\n' "${argument}"
+		printf "%s%s%s" "${argument^^}" " games for today: " $(date +"%x")
+		echo -e "\n"
+		printf "%s\n" "🏀 ------NBA------- 🏀"
+        planning_api_call nba
+		for ((i=0;i<=${#matchArray[@]}/2;i+=2)); do
+			planning_printer "$i"
+		done
+		printf "%s\n" "   ----------------"
+		printf "%s\n" "🏒 ------NHL------- 🏒"
+		planning_api_call nhl
+		for ((i=0;i<=${#matchArray[@]}/2;i+=2)); do
+			planning_printer "$i"
+		done
+		printf "%s\n" "   ----------------"
+		printf "%s\n" "⚾ ------MLB------- ⚾"
+		planning_api_call mlb
+		for ((i=0;i<=${#matchArray[@]}/2;i+=2)); do
+			planning_printer "$i"
+		done
         ;;
-	"nba")
-		nba_planning_api_call
-		nba_planning_printer
+	"nba" | "mlb" | "nhl")
+		planning_api_call ${argument}
+		printf "%s%s%s" "${argument^^}" " games for today: " $(date +"%x")
+		printf "\n"
+		printf "%s\n" "-----------------"
+		for ((i=0;i<=${#matchArray[@]}/2;i+=2)); do
+			planning_printer "$i"
+		done
+		printf "%s\n" "-----------------"
 		;;
 esac
 }
 
-# API Call -> json decode with jq -> bash array $nbaMatchArray
+# API Call -> json decode with jq -> bash array $matchArray
 # Array template : [Match#1] [Date#1] [Match#2] [Date#2] [Match#n] [Date#n]
 # Works with current date only in v0.1, support for future date input in roadmap, support for multiple date input in roadmap
-nba_planning_api_call(){
+planning_api_call(){
+	local sport=""
 	local date=$(date +"%Y%m%d")
-	local url="http://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=${date}"
+	case "$1" in
+		"nba")
+		sport="basketball/nba"
+		;;
+		"nhl")
+		sport="hockey/nhl"
+		;;
+		"mlb")
+		sport="baseball/mlb"
+		;;
+	esac
+	local url="http://site.api.espn.com/apis/site/v2/sports/${sport}/scoreboard?dates=${date}"
 	local wgetResult=$(wget -qO- "${url}")
 	local jqOut=$(echo "${wgetResult}" | jq -c '.events[] | .name,.date')
 	local IFS=$'\n'
-	nbaMatchArray=( $( printf "%s\n" "${jqOut//[\"\"]}" ) )
+	matchArray=( $( printf "%s\n" "${jqOut//[\"\"]}" ) )
 }
 
-# Pretty print of $nbaMatchArray from API Call
-nba_planning_printer(){
-	local nbaMatch=${nbaMatchArray[0]}
+# Pretty print of $matchArray from API Call
+planning_printer(){
+	local match=${matchArray[$1]}
 	local IFS=$';'
-	local specificMatchArray=( ${nbaMatch//at/\;} )
+	local specificMatchArray=( ${match// at/\;} )
 	local IFS=$' \t\n'
-	color1=$(get_team_color "${specificMatchArray[0]}")
-	color2=$(get_team_color "${specificMatchArray[1]}")
-	printf "%s @ %s\n" "${!color1}${specificMatchArray[0]}${end}" "${!color2}${specificMatchArray[1]}${end}"
+	local color1=$(get_team_color "${specificMatchArray[0]}")
+	local color2=$(get_team_color "${specificMatchArray[1]}")
+	local date=${matchArray[(($1+1))]}
+	local dateNotUTC=$(date -d "TZ=\"UTC\" $date" +"%T %A %d" )
+	printf "%s\n" "${!color1}${specificMatchArray[0]}${end} @${!color2}${specificMatchArray[1]}${end} | ${dateNotUTC}"
 }
 
-
+# Get team color code from colors.data
 get_team_color(){
+#RedSox/WhiteSox and nba/nhl Kings
 local teamArray=( $1 )
 local teamColor=${teamArray[-1],,}
-echo "$teamColor"
+if [ $teamColor = "76ers" ]
+then
+	echo "seventysixers"
+else
+	echo "$teamColor"
+fi
 }
 
 # Main with subcommand checker
@@ -66,15 +119,19 @@ echo "$teamColor"
 # Valid subCommand (Check TBA)
 # Bad subCommand (TBA)
 main(){
-source ./colors.data
-subCommand=$1
+source colors.data
+local subCommand=$1
 case "${subCommand}" in
 	"help" | "")
 		sub_help
 		;;
-	*)
+	"planning")
 		shift
 		sub_"${subCommand}" "$@"
+		;;
+	*)
+		printf "%s%s\n\n" ${subCommand} " is an invalid parameter, please refer to the following help"
+		sub_help
 		;;
 esac
 }
