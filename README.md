@@ -44,7 +44,7 @@ Arguments:
 
 livescore planning all
 
-![](D:\BASH\bashlivescore\livescorebash.gif)
+![](./livescorebash.gif)
 
 
 
