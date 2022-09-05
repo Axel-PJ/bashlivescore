@@ -25,6 +25,10 @@ printf "%s\n" "Usage: livescore [COMMAND] [ARGUMENT]" \
 #Planning subCommand
 sub_planning(){
 local argument
+local sports="nba nhl mlb"
+local nba_icon=🏀
+local nhl_icon=🏒
+local mlb_icon=⚾
 argument=$1
 case "${argument}" in
     "help" | "")
@@ -33,39 +37,29 @@ case "${argument}" in
     "all")
 		printf "%s%s%s" "${argument^^}" " games for today: " $(date -I)
 		echo -e "\n"
-		printf "%s\n" "🏀 ------NBA------- 🏀"
-        planning_api_call nba
-		if [ ! -z "${matchArray}" ]; then
-			for ((i=0;i<=${#matchArray[@]}/2;i+=2)); do
-				planning_printer "$i"
-			done
-		fi
-		printf "%s\n" "   ----------------"
-		printf "%s\n" "🏒 ------NHL------- 🏒"
-		planning_api_call nhl
-		if [ ! -z "${matchArray}" ]; then
-			for ((i=0;i<=${#matchArray[@]}/2;i+=2)); do
-				planning_printer "$i"
-			done
-		fi
-		printf "%s\n" "   ----------------"
-		printf "%s\n" "⚾ ------MLB------- ⚾"
-		planning_api_call mlb
-		if [ ! -z "${matchArray}" ]; then
-			for ((i=0;i<=${#matchArray[@]}/2;i+=2)); do
-				planning_printer "$i"
-			done
-		fi
+		for sport in $sports; do
+			icon="${sport}_icon"
+			printf "%s\n" "${!icon} ------${sport^^}------- ${!icon}"
+			planning_api_call "${sport}"
+			if [ ! -z "${matchArray}" ]; then
+				for ((i=0;i<=${#matchArray[@]}/2;i+=2)); do
+					planning_printer "$i"
+				done
+			fi
+			echo -e "\n"
+		done
         ;;
 	"nba" | "mlb" | "nhl")
-		planning_api_call ${argument}
 		printf "%s%s%s" "${argument^^}" " games for today: " $(date +"%x")
-		printf "\n"
-		printf "%s\n" "-----------------"
-		for ((i=0;i<=${#matchArray[@]}/2;i+=2)); do
-			planning_printer "$i"
-		done
-		printf "%s\n" "-----------------"
+		echo -e "\n"
+		icon="${argument}_icon"
+		printf "%s\n" "${!icon} ------${argument^^}------- ${!icon}"
+		planning_api_call ${argument}
+		if [ ! -z "${matchArray}" ]; then
+			for ((i=0;i<=${#matchArray[@]}/2;i+=2)); do
+				planning_printer "$i"
+			done
+		fi
 		;;
 esac
 }
