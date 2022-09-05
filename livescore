@@ -31,25 +31,31 @@ case "${argument}" in
         printf '%s\n' 'sub command help'
         ;;
     "all")
-		printf "%s%s%s" "${argument^^}" " games for today: " $(date +"%x")
+		printf "%s%s%s" "${argument^^}" " games for today: " $(date -I)
 		echo -e "\n"
 		printf "%s\n" "🏀 ------NBA------- 🏀"
         planning_api_call nba
-		for ((i=0;i<=${#matchArray[@]}/2;i+=2)); do
-			planning_printer "$i"
-		done
+		if [ ! -z "${matchArray}" ]; then
+			for ((i=0;i<=${#matchArray[@]}/2;i+=2)); do
+				planning_printer "$i"
+			done
+		fi
 		printf "%s\n" "   ----------------"
 		printf "%s\n" "🏒 ------NHL------- 🏒"
 		planning_api_call nhl
-		for ((i=0;i<=${#matchArray[@]}/2;i+=2)); do
-			planning_printer "$i"
-		done
+		if [ ! -z "${matchArray}" ]; then
+			for ((i=0;i<=${#matchArray[@]}/2;i+=2)); do
+				planning_printer "$i"
+			done
+		fi
 		printf "%s\n" "   ----------------"
 		printf "%s\n" "⚾ ------MLB------- ⚾"
 		planning_api_call mlb
-		for ((i=0;i<=${#matchArray[@]}/2;i+=2)); do
-			planning_printer "$i"
-		done
+		if [ ! -z "${matchArray}" ]; then
+			for ((i=0;i<=${#matchArray[@]}/2;i+=2)); do
+				planning_printer "$i"
+			done
+		fi
         ;;
 	"nba" | "mlb" | "nhl")
 		planning_api_call ${argument}
@@ -84,8 +90,12 @@ planning_api_call(){
 	local url="http://site.api.espn.com/apis/site/v2/sports/${sport}/scoreboard?dates=${date}"
 	local wgetResult=$(wget -qO- "${url}")
 	local jqOut=$(echo "${wgetResult}" | jq -c '.events[] | .name,.date')
-	local IFS=$'\n'
-	matchArray=( $( printf "%s\n" "${jqOut//[\"\"]}" ) )
+	if [ -z "${jqOut}" ]; then
+		echo "No games found for this date"
+	else
+		local IFS=$'\n'
+		matchArray=( $( printf "%s\n" "${jqOut//[\"\"]}" ) )
+	fi
 }
 
 # Pretty print of $matchArray from API Call
