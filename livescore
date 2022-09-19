@@ -35,7 +35,7 @@ case "${argument}" in
         printf '%s\n' 'sub command help'
         ;;
     "all")
-		printf "%s%s%s" "${argument^^}" " games for today: " $(date -I)
+		printf "%s%s%s" "${argument^^}" " upcoming games"
 		echo -e "\n"
 		for sport in $sports; do
 			icon="${sport}_icon"
@@ -50,7 +50,7 @@ case "${argument}" in
 		done
         ;;
 	"nba" | "mlb" | "nhl" | "nfl")
-		printf "%s%s%s" "${argument^^}" " games for today: " $(date +"%x")
+		printf "%s%s%s" "${argument^^}" " upcoming games"
 		echo -e "\n"
 		icon="${argument}_icon"
 		printf "%s\n" "${!icon} ------${argument^^}------- ${!icon}"
@@ -102,11 +102,14 @@ planning_printer(){
 	local IFS=$';'
 	local specificMatchArray=( ${match// at/\;} )
 	local IFS=$' \t\n'
-	local color1=$(get_team_color "${specificMatchArray[0]}")
-	local color2=$(get_team_color "${specificMatchArray[1]}")
+	local team1=${specificMatchArray[0]}
+	local team2=${specificMatchArray[1]/ /}
+	local color1=$(get_team_color "${team1}")
+	local color2=$(get_team_color "${team2}")
 	local date=${matchArray[(($1+1))]}
 	local dateNotUTC=$(date -d "TZ=\"UTC\" $date" +"%T %A %d" )
-	printf "%s\n" "${!color1}${specificMatchArray[0]}${end} @${!color2}${specificMatchArray[1]}${end} | ${dateNotUTC}"
+	printf "%s\n" "${!color1}${team1}${end} @ ${!color2}${team2}${end} | ${dateNotUTC}"
+	printf "%s\n" ""
 }
 
 # Get team color code from colors.data
@@ -114,15 +117,41 @@ get_team_color(){
 #RedSox/WhiteSox and nba/nhl Kings
 local teamArray=( $1 )
 local teamColor=${teamArray[-1],,}
-if [ $teamColor = "76ers" ]
-then
+case "$teamColor" in
+	"76ers")
 	echo "seventysixers"
-elif [ $teamColor = "49ers" ]
-then
-	echo "fourtyniners"	
-else
+	;;
+	"49ers")
+	echo "fourtyniners"
+	;;
+	"sox")
+	if [ ${teamArray[-2],,} = "red" ]
+	then
+		echo "redsox"
+	else
+		echo "sox"
+	fi
+	;;
+	"jets")
+	if [ ${teamArray[-2],,} = "york" ]
+	then
+		echo "nfljets"
+	else
+		echo "jets"
+	fi
+	;;
+	"kings")
+	if [ ${teamArray[-2],,} = "angeles" ]
+	then
+		echo "nhlkings"
+	else
+		echo "kings"
+	fi
+	;;
+	*)
 	echo "$teamColor"
-fi
+	;;
+esac
 }
 
 # Main with subcommand checker
