@@ -1,0 +1,6 @@
+#!/bin/bash
+
+nba_icon=🏀
+nhl_icon=🏒
+mlb_icon=⚾
+football_icon=⚽

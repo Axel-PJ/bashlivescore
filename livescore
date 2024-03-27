@@ -26,9 +26,6 @@ printf "%s\n" "Usage: livescore [COMMAND] [ARGUMENT]" \
 sub_planning(){
 local argument
 local sports="nba nhl mlb"
-local nba_icon=🏀
-local nhl_icon=🏒
-local mlb_icon=⚾
 argument=$1
 case "${argument}" in
     "help" | "")
@@ -112,6 +109,59 @@ planning_printer(){
 	printf "%s\n" ""
 }
 
+
+sub_results(){
+local argument
+argument=$1
+case "${argument}" in
+    "help" | "")
+        printf '%s\n' 'sub command help'
+        ;;
+	"football")
+		printf "%s%s%s" "${argument^^}" " last results"
+		echo -e "\n"
+		icon="${argument}_icon"
+		printf "%s\n" "${!icon} ------${argument^^}------- ${!icon}"
+		for comp in ${COMPETITIONS[@]}; do
+			results_football_api_call ${comp}
+			if [ ! -z "${matchArray}" ]; then
+				for ((i=0;i<${#matchArray[@]}/5;i+=1)); do
+					results_printer "$i"
+				done
+			fi
+		done
+		;;
+esac
+}
+
+# API Call -> json decode with jq -> bash array $matchArray
+# Array template : [HomeTeam] [AwayTeal] [Date] [homeScore] [awayScore]...
+results_football_api_call(){
+	local sport=""
+	local date=$(date +"%Y%m%d")
+	# $(date +"%Y%m%d" --date='next sunday')
+	local url="http://api.football-data.org/v4/competitions/$1/matches?dateFrom=2024-03-16&dateTo=2024-03-17"
+	local wgetResult=$(wget -qO- "${url}" --header='X-Auth-Token: 591daf1a01f746978343ba83a101fc19')
+	local jqOut=$(echo "${wgetResult}" | jq -c '.matches[] | .homeTeam.shortName,.awayTeam.shortName,.utcDate,.score.fullTime.home,.score.fullTime.away')
+	if [ -z "${jqOut}" ]; then
+		echo "No games found for this date"
+	else
+		local IFS=$'\n'
+		matchArray=( $( printf "%s\n" "${jqOut//[\"\"]}" ) )
+	fi
+}
+
+results_printer(){
+	local team1=${matchArray[(($1*5))]}
+	local team2=${matchArray[(($1*5+1))]}
+	#local color1=$(get_team_color "${team1}")
+	#local color2=$(get_team_color "${team2}")
+	local date=${matchArray[(($1*5+2))]}
+	local dateNotUTC=$(date -d "TZ=\"UTC\" $date" +"%T %A %d" )
+	printf "%s\n" "${team1} ${matchArray[(($1*5+3))]} - ${matchArray[(($1*5+4))]} ${team2} | ${dateNotUTC}"
+	printf "%s\n" ""
+}
+
 # Get team color code from colors.data
 get_team_color(){
 #RedSox/WhiteSox and nba/nhl Kings
@@ -160,12 +210,19 @@ esac
 # Bad subCommand (TBA)
 main(){
 source colors.data
+source emoji.data
+source football.data
+if [ -f .env ]; then source .env; fi
 local subCommand=$1
 case "${subCommand}" in
 	"help" | "")
 		sub_help
 		;;
 	"planning")
+		shift
+		sub_"${subCommand}" "$@"
+		;;
+	"results")
 		shift
 		sub_"${subCommand}" "$@"
 		;;

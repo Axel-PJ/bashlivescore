@@ -1,0 +1,3 @@
+#!/bin/bash
+
+COMPETITIONS=('PL' 'CL' 'FL1' 'BL1' 'SA' 'PD')
