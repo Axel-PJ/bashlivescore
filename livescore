@@ -25,47 +25,41 @@ printf "%s\n" "Usage: livescore [COMMAND] [ARGUMENT]" \
 #Planning subCommand
 sub_planning(){
 local argument
+local sports="nba nhl mlb"
+local nba_icon=🏀
+local nhl_icon=🏒
+local mlb_icon=⚾
 argument=$1
 case "${argument}" in
     "help" | "")
         printf '%s\n' 'sub command help'
         ;;
     "all")
-		printf "%s%s%s" "${argument^^}" " games for today: " $(date -I)
+		printf "%s%s%s" "${argument^^}" " upcoming games"
 		echo -e "\n"
-		printf "%s\n" "🏀 ------NBA------- 🏀"
-        planning_api_call nba
-		if [ ! -z "${matchArray}" ]; then
-			for ((i=0;i<=${#matchArray[@]}/2;i+=2)); do
-				planning_printer "$i"
-			done
-		fi
-		printf "%s\n" "   ----------------"
-		printf "%s\n" "🏒 ------NHL------- 🏒"
-		planning_api_call nhl
-		if [ ! -z "${matchArray}" ]; then
-			for ((i=0;i<=${#matchArray[@]}/2;i+=2)); do
-				planning_printer "$i"
-			done
-		fi
-		printf "%s\n" "   ----------------"
-		printf "%s\n" "⚾ ------MLB------- ⚾"
-		planning_api_call mlb
-		if [ ! -z "${matchArray}" ]; then
-			for ((i=0;i<=${#matchArray[@]}/2;i+=2)); do
-				planning_printer "$i"
-			done
-		fi
-        ;;
-	"nba" | "mlb" | "nhl")
-		planning_api_call ${argument}
-		printf "%s%s%s" "${argument^^}" " games for today: " $(date +"%x")
-		printf "\n"
-		printf "%s\n" "-----------------"
-		for ((i=0;i<=${#matchArray[@]}/2;i+=2)); do
-			planning_printer "$i"
+		for sport in $sports; do
+			icon="${sport}_icon"
+			printf "%s\n" "${!icon} ------${sport^^}------- ${!icon}"
+			planning_api_call "${sport}"
+			if [ ! -z "${matchArray}" ]; then
+				for ((i=0;i<=${#matchArray[@]}/2;i+=2)); do
+					planning_printer "$i"
+				done
+			fi
+			echo -e "\n"
 		done
-		printf "%s\n" "-----------------"
+        ;;
+	"nba" | "mlb" | "nhl" | "nfl")
+		printf "%s%s%s" "${argument^^}" " upcoming games"
+		echo -e "\n"
+		icon="${argument}_icon"
+		printf "%s\n" "${!icon} ------${argument^^}------- ${!icon}"
+		planning_api_call ${argument}
+		if [ ! -z "${matchArray}" ]; then
+			for ((i=0;i<=${#matchArray[@]}/2;i+=2)); do
+				planning_printer "$i"
+			done
+		fi
 		;;
 esac
 }
@@ -86,6 +80,10 @@ planning_api_call(){
 		"mlb")
 		sport="baseball/mlb"
 		;;
+		"nfl")
+		sport="football/nfl"
+		date="$(date +"%Y%m%d")-$(date +"%Y%m%d" --date='next sunday')"
+		;;
 	esac
 	local url="http://site.api.espn.com/apis/site/v2/sports/${sport}/scoreboard?dates=${date}"
 	local wgetResult=$(wget -qO- "${url}")
@@ -104,11 +102,14 @@ planning_printer(){
 	local IFS=$';'
 	local specificMatchArray=( ${match// at/\;} )
 	local IFS=$' \t\n'
-	local color1=$(get_team_color "${specificMatchArray[0]}")
-	local color2=$(get_team_color "${specificMatchArray[1]}")
+	local team1=${specificMatchArray[0]}
+	local team2=${specificMatchArray[1]/ /}
+	local color1=$(get_team_color "${team1}")
+	local color2=$(get_team_color "${team2}")
 	local date=${matchArray[(($1+1))]}
 	local dateNotUTC=$(date -d "TZ=\"UTC\" $date" +"%T %A %d" )
-	printf "%s\n" "${!color1}${specificMatchArray[0]}${end} @${!color2}${specificMatchArray[1]}${end} | ${dateNotUTC}"
+	printf "%s\n" "${!color1}${team1}${end} @ ${!color2}${team2}${end} | ${dateNotUTC}"
+	printf "%s\n" ""
 }
 
 # Get team color code from colors.data
@@ -116,12 +117,41 @@ get_team_color(){
 #RedSox/WhiteSox and nba/nhl Kings
 local teamArray=( $1 )
 local teamColor=${teamArray[-1],,}
-if [ $teamColor = "76ers" ]
-then
+case "$teamColor" in
+	"76ers")
 	echo "seventysixers"
-else
+	;;
+	"49ers")
+	echo "fourtyniners"
+	;;
+	"sox")
+	if [ ${teamArray[-2],,} = "red" ]
+	then
+		echo "redsox"
+	else
+		echo "sox"
+	fi
+	;;
+	"jets")
+	if [ ${teamArray[-2],,} = "york" ]
+	then
+		echo "nfljets"
+	else
+		echo "jets"
+	fi
+	;;
+	"kings")
+	if [ ${teamArray[-2],,} = "angeles" ]
+	then
+		echo "nhlkings"
+	else
+		echo "kings"
+	fi
+	;;
+	*)
 	echo "$teamColor"
-fi
+	;;
+esac
 }
 
 # Main with subcommand checker
